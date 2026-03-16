@@ -1,5 +1,5 @@
 { # always run this block upon startup
-  .libPaths("/oak/stanford/groups/horence/chester/dabs_ref/REnv/seurat_4.4")
+  .libPaths("/oak/stanford/groups/horence/chester/dabs_ref/REnv/seurat_4.4_updated")
   
   suppressPackageStartupMessages({
     # library(svglite)
@@ -9,7 +9,7 @@
     library(gridExtra)
     library(reshape2)
     library(intrinsicDimension)
-    library(tibble)
+    # library(tibble)
     library(dplyr)
     library(patchwork)
     library(viridis)
@@ -53,6 +53,13 @@
     library(apcluster) # clustering
     # library(tricycle) # cell cycle
     library(QuieScore) # compute G0 score
+    library(MuSiC)
+    library(Biobase)
+    library(BisqueRNA)
+    library(DWLS)
+    library(pheatmap)
+    library(reshape2)
+    library(cowplot)
   })
   
   custom_colors <- list()
@@ -253,59 +260,64 @@ seurat <- readRDS(file.path(working_dir, "raw.purged.rds"))
 only3_seurat <- function(seurat) {
   seurat_filtered <- subset(seurat, subset = sample != "STEM_A")
   
-  levels(seurat_filtered@meta.data$merged_sample) <- c(levels(seurat_filtered@meta.data$merged_sample), "Stem", "Control")
-  seurat_filtered@meta.data$merged_sample[seurat_filtered@meta.data$merged_sample %in% c("STEM_B_1", "STEM_B_2")] <- "Stem"
+  levels(seurat_filtered@meta.data$merged_sample) <- c(levels(seurat_filtered@meta.data$merged_sample), "cStem", "Control")
+  seurat_filtered@meta.data$merged_sample[seurat_filtered@meta.data$merged_sample %in% c("STEM_B")] <- "cStem"
   seurat_filtered@meta.data$merged_sample[seurat_filtered@meta.data$merged_sample %in% c("CONTROL")] <- "Control"
   seurat_filtered@meta.data$merged_sample <- droplevels(seurat_filtered@meta.data$merged_sample)
-  desired_order <- c("Stem", "ALDH", "STEM_A", "Control", "Undetermined")
+  if ("Undetermined" %in% seurat_filtered$merged_sample) {
+    desired_order <- c("cStem", "ALDH", "Control", "Undetermined")
+  } else {
+    desired_order <- c("cStem", "ALDH", "Control")
+  }
   seurat_filtered@meta.data$merged_sample <- factor(seurat_filtered$merged_sample, levels = desired_order)
   
-  levels(seurat_filtered@meta.data$combined_sample) <- c(levels(seurat_filtered@meta.data$combined_sample), "Stem", "Control")
-  seurat_filtered@meta.data$combined_sample[seurat_filtered@meta.data$combined_sample %in% c("STEM_B")] <- "Stem"
-  seurat_filtered@meta.data$combined_sample[seurat_filtered@meta.data$combined_sample %in% c("CONTROL")] <- "Control"
-  seurat_filtered@meta.data$combined_sample <- droplevels(seurat_filtered@meta.data$combined_sample)
-  desired_order <- c("Stem", "ALDH", "Control", "Undetermined")
-  seurat_filtered@meta.data$combined_sample <- factor(seurat_filtered$combined_sample, levels = desired_order)
+  seurat_filtered$combined_sample <- seurat_filtered$merged_sample
   
-  ### store meta_sample c("STEM", "CONTROL", "Undetermined")
-  levels(seurat_filtered@meta.data$meta_sample) <- c(levels(seurat_filtered@meta.data$meta_sample), "Stem", "Control")
-  seurat_filtered@meta.data$meta_sample[seurat_filtered@meta.data$meta_sample %in% c("STEM")] <- "Stem"
-  seurat_filtered@meta.data$meta_sample[seurat_filtered@meta.data$meta_sample %in% c("CONTROL")] <- "Control"
+  levels(seurat_filtered@meta.data$meta_sample) <- levels(seurat_filtered@meta.data$combined_sample)
+  seurat_filtered@meta.data$meta_sample[seurat_filtered@meta.data$meta_sample %in% c("ALDH")] <- "cStem"
   seurat_filtered@meta.data$meta_sample <- droplevels(seurat_filtered@meta.data$meta_sample)
-  desired_order <- c("Stem", "Control", "Undetermined")
+  if ("Undetermined" %in% seurat_filtered$meta_sample) {
+    desired_order <- c("cStem", "Control", "Undetermined")
+  } else {
+    desired_order <- c("cStem", "Control")
+  }
   seurat_filtered$meta_sample <- factor(seurat_filtered$meta_sample, levels = desired_order)
   return(seurat_filtered)
 }
 
 purge4_seurat <- function(seurat) {
   seurat_filtered <- seurat
-  levels(seurat_filtered@meta.data$merged_sample) <- c(levels(seurat_filtered@meta.data$merged_sample), "Stem", "Stem 30 dpt", "Control")
-  seurat_filtered@meta.data$merged_sample[seurat_filtered@meta.data$merged_sample %in% c("STEM_B")] <- "Stem"
+  levels(seurat_filtered@meta.data$merged_sample) <- c(levels(seurat_filtered@meta.data$merged_sample), "cStem", "Stem 30 dpt", "Control")
+  seurat_filtered@meta.data$merged_sample[seurat_filtered@meta.data$merged_sample %in% c("STEM_B")] <- "cStem"
   seurat_filtered@meta.data$merged_sample[seurat_filtered@meta.data$merged_sample %in% c("STEM_A")] <- "Stem 30 dpt"
   seurat_filtered@meta.data$merged_sample[seurat_filtered@meta.data$merged_sample %in% c("CONTROL")] <- "Control"
   seurat_filtered@meta.data$merged_sample <- droplevels(seurat_filtered@meta.data$merged_sample)
-  desired_order <- c("Stem", "ALDH", "Stem 30 dpt", "Control", "Undetermined")
+  if ("Undetermined" %in% seurat_filtered$merged_sample) {
+    desired_order <- c("cStem", "ALDH", "Stem 30 dpt", "Control", "Undetermined")
+  } else {
+    desired_order <- c("cStem", "ALDH", "Stem 30 dpt", "Control")
+  }  
   seurat_filtered@meta.data$merged_sample <- factor(seurat_filtered$merged_sample, levels = desired_order)
   
-  levels(seurat_filtered@meta.data$combined_sample) <- c(levels(seurat_filtered@meta.data$combined_sample), "Stem", "Control")
-  seurat_filtered@meta.data$combined_sample[seurat_filtered@meta.data$combined_sample %in% c("STEM_B")] <- "Stem"
-  seurat_filtered@meta.data$combined_sample[seurat_filtered@meta.data$combined_sample %in% c("STEM_A", "CONTROL")] <- "Control"
+  seurat_filtered$combined_sample <- seurat_filtered$merged_sample
+  seurat_filtered@meta.data$combined_sample[seurat_filtered@meta.data$combined_sample %in% c("Stem 30 dpt")] <- "Control"
   seurat_filtered@meta.data$combined_sample <- droplevels(seurat_filtered@meta.data$combined_sample)
-  desired_order <- c("Stem", "ALDH", "Control", "Undetermined")
+  if ("Undetermined" %in% seurat_filtered$merged_sample) {
+    desired_order <- c("cStem", "ALDH", "Control", "Undetermined")
+  } else {
+    desired_order <- c("cStem", "ALDH", "Control")
+  }  
   seurat_filtered@meta.data$combined_sample <- factor(seurat_filtered$combined_sample, levels = desired_order)
   
-  ### store meta_sample c("STEM", "CONTROL", "Undetermined")
-  levels(seurat_filtered@meta.data$meta_sample) <- c(levels(seurat_filtered@meta.data$meta_sample), "Stem", "Control")
-  seurat_filtered@meta.data$meta_sample[seurat_filtered@meta.data$meta_sample %in% c("STEM")] <- "Stem"
-  seurat_filtered@meta.data$meta_sample[seurat_filtered@meta.data$meta_sample %in% c("CONTROL")] <- "Control"
-  seurat_filtered@meta.data$meta_sample <- droplevels(seurat_filtered@meta.data$meta_sample)
-  desired_order <- c("Stem", "Control", "Undetermined")
+  seurat_filtered$meta_sample <- seurat_filtered$combined_sample
+  seurat_filtered@meta.data$meta_sample[seurat_filtered@meta.data$meta_sample %in% c("ALDH")] <- "cStem"
+  if ("Undetermined" %in% seurat_filtered$merged_sample) {
+    desired_order <- c("cStem", "Control", "Undetermined")
+  } else {
+    desired_order <- c("cStem", "Control")
+  }  
   seurat_filtered$meta_sample <- factor(seurat_filtered$meta_sample, levels = desired_order)
   
-  seurat_filtered@meta.data$sample <- droplevels(seurat_filtered@meta.data$sample)
-  seurat_filtered@meta.data$merged_sample <- droplevels(seurat_filtered@meta.data$merged_sample)
-  seurat_filtered@meta.data$combined_sample <- droplevels(seurat_filtered@meta.data$combined_sample)
-  seurat_filtered@meta.data$meta_sample <- droplevels(seurat_filtered@meta.data$meta_sample)
   return(seurat_filtered)
 }
 
@@ -1803,11 +1815,19 @@ cluster_composition <- function(
   
   knitr::kable(table_clusters_by_samples)
   
-  write.csv(rbind(cbind(table_type = "Samples by Clusters - Absolute Counts", table_samples_by_clusters), setNames(data.frame(table_type = "", resolution = "", total_cell_count = "", t(rep("", ncol(table_samples_by_clusters) - 2))), names(cbind(table_type = "Samples by Clusters - Absolute Counts", table_samples_by_clusters))), cbind(table_type = "Samples by Clusters - Percentages", resolution = table_samples_by_clusters$resolution, total_cell_count = table_samples_by_clusters$total_cell_count, round(table_samples_by_clusters[,3:ncol(table_samples_by_clusters)] / table_samples_by_clusters$total_cell_count * 100, 2))), file.path(working_dir, "temp_samples_by_clusters.csv"), row.names = FALSE, quote = FALSE)
+  if(file.exists(file.path(working_dir, paste0("cluster_sample_summary.", runid, ".csv")))) {
+    file.remove(file.path(working_dir, paste0("cluster_sample_summary.", runid, ".csv")))
+  }
   
-  write.csv(rbind(cbind(table_type = "Clusters by Samples - Absolute Counts", table_clusters_by_samples), setNames(data.frame(table_type = "", cluster = "", total_cell_count = "", t(rep("", ncol(table_clusters_by_samples) - 2))), names(cbind(table_type = "Clusters by Samples - Absolute Counts", table_clusters_by_samples))), cbind(table_type = "Clusters by Samples - Percentages", cluster = table_clusters_by_samples$cluster, total_cell_count = table_clusters_by_samples$total_cell_count, round(table_clusters_by_samples[,3:ncol(table_clusters_by_samples)] / table_clusters_by_samples$total_cell_count * 100, 2))), file.path(working_dir, "temp_clusters_by_samples.csv"), row.names = FALSE, quote = FALSE)
-  
-  system(paste0("cat '", file.path(working_dir, "temp_samples_by_clusters.csv"), "' > '", file.path(working_dir, paste0("cluster_sample_summary.", runid, ".csv")), "' && echo '' >> '", file.path(working_dir, paste0("cluster_sample_summary.", runid, ".csv")), "' && tail -n +2 '", file.path(working_dir, "temp_clusters_by_samples.csv"), "' >> '", file.path(working_dir, "cluster_sample_summary.single.csv"), "' && rm '", file.path(working_dir, "temp_samples_by_clusters.csv"), "' '", file.path(working_dir, "temp_clusters_by_samples.csv"), "'"))
+  write.csv(rbind(
+    cbind(table_type = "Counts", table_clusters_by_samples), 
+    setNames(data.frame(table_type = "", cluster = "", total_cell_count = "", t(rep("", ncol(table_clusters_by_samples) - 2))), 
+             names(cbind(table_type = "Counts", table_clusters_by_samples))), 
+    cbind(table_type = "Percentages", 
+          cluster = table_clusters_by_samples$cluster, 
+          total_cell_count = table_clusters_by_samples$total_cell_count, 
+          round(table_clusters_by_samples[,3:ncol(table_clusters_by_samples)] / table_clusters_by_samples$total_cell_count * 100, 2))
+  ), file.path(working_dir, paste0("cluster_sample_summary.", runid, ".csv")), row.names = FALSE, quote = FALSE)
   
   # absolute count
   temp_labels <- seurat@meta.data %>%
@@ -1962,6 +1982,51 @@ cluster_composition <- function(
 
 print(runid)
 cluster_composition(seurat, runid, resolution = "merged_sample", plot_width = 14)
+
+### composition of samples and cell type
+table_samples_by_clusters <- seurat@meta.data %>%
+  group_by(merged_sample, cell_type) %>%
+  dplyr::summarise(count = n()) %>%
+  spread(cell_type, count, fill = 0) %>%
+  ungroup() %>%
+  mutate(total_cell_count = rowSums(.[c(2:ncol(.))])) %>%
+  dplyr::select(c('merged_sample', 'total_cell_count', everything())) %>%
+  arrange(factor(merged_sample, levels = levels(seurat@meta.data$merged_sample)))
+
+knitr::kable(table_samples_by_clusters)
+
+plot_df <- table_samples_by_clusters %>%
+  dplyr::select(-total_cell_count) %>%
+  reshape2::melt(id.vars = "merged_sample") %>%
+  dplyr::group_by(merged_sample) %>%
+  dplyr::mutate(percentage = value / sum(value) * 100) %>%
+  dplyr::ungroup()
+
+# Plot as stacked barplot in percentage
+p1 <- ggplot(plot_df, aes(x = merged_sample, y = percentage, fill = variable)) +
+  geom_bar(stat = "identity", position = "stack") +
+  scale_fill_manual(name = "Cell Type", values = custom_colors$discrete) +
+  scale_y_continuous(name = "Percentage of cells", labels = scales::percent_format(scale = 1), expand = c(0.01, 0)) +
+  coord_cartesian(clip = "off") +
+  theme_bw() +
+  theme(
+    legend.position = "left",
+    plot.title = element_text(hjust = 0.5),
+    text = element_text(size = 16),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.title.x = element_blank(),
+    axis.text.x = element_text(angle = -45, hjust = 0, vjust = 1),
+    plot.margin = margin(t = 20, r = 20, b = 0, l = 0, unit = "pt")
+  )
+
+ggsave(
+  # file.path(working_dir, 'composition_samples_clusters_by_number.single.png'),
+  file.path(working_dir, 'final/composition_cell_type.3.pdf'),
+  p1,
+  width = 4, # 4 for 4 samples; 
+  height = 8
+)
 
 ### cell cycle
 # prepare gene lists
@@ -3180,7 +3245,7 @@ g0_score_by_resolution_violin(seurat, runid,
 # ratio_to_plot <- log10(ratio+1)
 # 
 # # library(reshape2)
-# reshaped_df <- melt(as.matrix(ratio_to_plot))
+# reshaped_df <- reshape2::melt(as.matrix(ratio_to_plot))
 # colnames(reshaped_df) <- c("cluster_1", "cluster_2", "probability")
 # 
 # reshaped_df$cluster_1 <- factor(reshaped_df$cluster_1, levels = rownames(ratio_to_plot))
@@ -3515,7 +3580,7 @@ singler_results_blueprintencode_main <- readRDS(file.path(working_dir, "singler_
 # heatmap_data <- table_samples_by_cell_type[, -which(names(table_samples_by_cell_type) == "total_cell_count")]
 # 
 # # Reshape to long format
-# heatmap_data_long <- melt(heatmap_data, id.vars = "seurat_clusters", variable.name = "cell_type", value.name = "count")
+# heatmap_data_long <- reshape2::melt(heatmap_data, id.vars = "seurat_clusters", variable.name = "cell_type", value.name = "count")
 # 
 # # Normalize by row max
 # heatmap_data_long <- heatmap_data_long %>%
@@ -3535,7 +3600,7 @@ singler_results_blueprintencode_main <- readRDS(file.path(working_dir, "singler_
 # ordered_cols <- heatmap_matrix[, hc$order]
 # 
 # # Create a new long format data frame for the reordered heatmap
-# heatmap_data_ordered <- melt(ordered_cols)
+# heatmap_data_ordered <- reshape2::melt(ordered_cols)
 # colnames(heatmap_data_ordered) <- c("seurat_clusters", "cell_type", "likelihood")
 # 
 # # Convert seurat_clusters to numeric for proper ordering
@@ -3577,7 +3642,7 @@ singler_results_blueprintencode_main <- readRDS(file.path(working_dir, "singler_
 # ordered_cols <- heatmap_matrix[, hc$order]
 # 
 # # Create a new long format data frame for the reordered heatmap
-# heatmap_data_ordered <- melt(ordered_cols)
+# heatmap_data_ordered <- reshape2::melt(ordered_cols)
 # colnames(heatmap_data_ordered) <- c("seurat_clusters", "cell_type", "likelihood")
 # 
 # # Convert seurat_clusters to numeric for proper ordering
@@ -3611,7 +3676,7 @@ singler_results_blueprintencode_main <- readRDS(file.path(working_dir, "singler_
 # heatmap_data <- table_samples_by_cell_type[, -which(names(table_samples_by_cell_type) == "total_cell_count")]
 # 
 # # Reshape to long format
-# heatmap_data_long <- melt(heatmap_data, id.vars = "seurat_clusters", variable.name = "cell_type", value.name = "count")
+# heatmap_data_long <- reshape2::melt(heatmap_data, id.vars = "seurat_clusters", variable.name = "cell_type", value.name = "count")
 # 
 # # Normalize by row total
 # heatmap_data_long <- heatmap_data_long %>%
@@ -3630,7 +3695,7 @@ singler_results_blueprintencode_main <- readRDS(file.path(working_dir, "singler_
 # ordered_cols <- heatmap_matrix[, hc$order]
 # 
 # # Create a new long format data frame for the reordered heatmap
-# heatmap_data_ordered <- melt(ordered_cols)
+# heatmap_data_ordered <- reshape2::melt(ordered_cols)
 # colnames(heatmap_data_ordered) <- c("seurat_clusters", "cell_type", "likelihood")
 # 
 # # Convert seurat_clusters to numeric for proper ordering
@@ -4798,6 +4863,65 @@ ggsave(file.path(working_dir, paste0("heatmap.", query, ".png")), plot = heatmap
   )
 }
 
+# barplot batch
+{
+  query <- "fig1k"
+  DefaultAssay(object = seurat) <- "RNA"
+  # genes <- c("ALPL.4", "CD34", "EFHD2", "SNAP25")
+  genes <- c("Myc (MYCN)", "ALPL.4", "EFHD2")
+  expr_data <- FetchData(seurat, vars = c(genes, "merged_sample"), layer = 'counts')
+  DefaultAssay(object = seurat) <- "integrated"
+  
+  expr_long <- expr_data %>%
+    pivot_longer(
+      cols = all_of(genes),
+      names_to = "gene",
+      values_to = "expr_value"
+    )
+  
+  plot_list <- lapply(genes, function(gene) {
+    gene_data <- expr_long %>% filter(gene == !!gene)
+    summary_data <- gene_data %>%
+      dplyr::group_by(merged_sample) %>%
+      dplyr::summarise(
+        mean_expr = mean(expr_value, na.rm = TRUE),
+        se_expr = sd(expr_value, na.rm = TRUE) / sqrt(n()),
+        .groups = "drop"
+      )
+    # Barplot
+    p <- ggplot(summary_data, aes(x = merged_sample, y = mean_expr, fill = merged_sample)) +
+      geom_bar(stat = "identity", position = position_dodge(width = 0.8), width = 0.7) +
+      geom_errorbar(aes(ymin = mean_expr - se_expr, ymax = mean_expr + se_expr), 
+                    width = 0.2, position = position_dodge(width = 0.8)) +
+      scale_fill_brewer(palette = "Set1") +
+      labs(title = gene, x = "", y = "Expression") +
+      theme_minimal() +
+      theme(
+        axis.title.y.right = element_blank(),
+        axis.text.y.right = element_blank(),
+        axis.ticks.y.right = element_blank(),
+        legend.position = "none"
+      )
+    # Add Kruskal-Wallis and pairwise Wilcoxon with Bonferroni correction
+  })
+  
+  num_cols <- 3
+  num_rows <- 1
+  
+  combined_plot <- gridExtra::grid.arrange(grobs = plot_list, ncol = num_cols, nrow = num_rows)
+  
+  combined_plot
+}
+
+ggsave(
+  file.path(working_dir, paste0("barplot.3.", query, ".pdf")), 
+  combined_plot, 
+  width = 3*num_cols, 
+  height = 4.5*num_rows,
+  dpi = 300, 
+  limitsize = FALSE
+)
+
 # featureplot individual
 {
   # runid <- "0718"
@@ -5132,7 +5256,7 @@ temp_labels_samples <- seurat_filtered@meta.data %>%
 # Plot for the samples by clusters
 p1 <- table_samples_by_clusters %>%
   select(-c('total_cell_count')) %>%
-  melt(id.vars = 'merged_sample') %>%
+  reshape2::melt(id.vars = 'merged_sample') %>%
   mutate(Sample = factor(Sample, levels = unique(seurat_filtered@meta.data$sample))) %>%
   ggplot(aes(merged_sample, value)) +
   geom_bar(aes(fill = variable), position = 'stack', stat = 'identity') +
@@ -5165,7 +5289,7 @@ temp_labels_clusters <- seurat_filtered@meta.data %>%
 # Plot for the clusters by samples
 p2 <- table_clusters_by_samples %>%
   select(-c('total_cell_count')) %>%
-  melt(id.vars = 'cluster') %>%
+  reshape2::melt(id.vars = 'cluster') %>%
   mutate(cluster = factor(cluster, levels = levels(seurat_filtered@meta.data$seurat_clusters))) %>%
   ggplot(aes(cluster, value)) +
   geom_bar(aes(fill = variable), position = 'stack', stat = 'identity') +
@@ -6318,7 +6442,7 @@ for (i in 1:length(layers_to_compare)) {
       }
       
       # Create a heatmap for the current comparison
-      heatmap_df <- melt(proportions_matrix)
+      heatmap_df <- reshape2::melt(proportions_matrix)
       colnames(heatmap_df) <- c("k_index", "b_index", "proportion")
       
       # Create a column for marking with distinct labels
@@ -7199,14 +7323,14 @@ ggsave(file.path(working_dir, "GSEA.png"), plot = p, width = 6, height = 8)
 # names(names) <- levels(seurat)
 # seurat <- RenameIdents(seurat, names)
 
-# names <- c("0_neural_stem", "1_neural_progenitor", "2_neural_stem", "3_endothelial", 
-#            "4_neural_progenitor", "5_endothelial/neural", "6_epithelial_stem", 
-#            "7_endocrine", "8_neural_progenitor", "9_mesenchymal", 
-#            "10_epithelial", "11_epithelial/endothelial", "12_epithelial", 
-#            "13_immune/neural", "14_epithelial", "15_epithelial", 
-#            "16_neural-derived_epithelial", "17_hemocyte", "18_epithelial", 
-#            "19_epithelial/immune", "20_endocrine/neural", 
-#            "21_neural-derived endothelial", "22_immune/neural", 
+# names <- c("0_neural_stem", "1_neural_progenitor", "2_neural_stem", "3_endothelial",
+#            "4_neural_progenitor", "5_endothelial/neural", "6_epithelial_stem",
+#            "7_endocrine", "8_neural_progenitor", "9_mesenchymal",
+#            "10_epithelial", "11_epithelial/endothelial", "12_epithelial",
+#            "13_immune/neural", "14_epithelial", "15_epithelial",
+#            "16_neural-derived_epithelial", "17_hemocyte", "18_epithelial",
+#            "19_epithelial/immune", "20_endocrine/neural",
+#            "21_neural-derived endothelial", "22_immune/neural",
 #            "23_endothelial/neural")
 
 # names <- c("0_multipotent_stem", "1_neural_stem", "2_haematopoietic_stem", "3_neural", 
@@ -7217,13 +7341,21 @@ ggsave(file.path(working_dir, "GSEA.png"), plot = p, width = 6, height = 8)
 #            "16_?", "17_oligodendrocyte", "18_germ", 
 #            "19_myeloid")
 
-names <- c("0_multipotent_stem", "1_neural_stem", "2_lymphoid_progenitor", "3_neural", 
-           "4_monocytes", "5_melanocyte+NK", "6_myeloid_progenitor", 
-           "7_neural_progenitor", "8_glial", "9_neural+endothelial", 
-           "10_endothelial", "11_neural_stem", "12_neural", 
-           "13_myeloid", "14_neural_progenitor", "15_monocyte/DC", 
-           "16_lymphoid", "17_fibroblast/muscle", "18_myeloid", 
-           "19_myeloid")
+# names <- c("0_multipotent_stem", "1_neural_stem", "2_lymphoid_progenitor", "3_neural", 
+#            "4_monocytes", "5_melanocyte+NK", "6_myeloid_progenitor", 
+#            "7_neural_progenitor", "8_glial", "9_neural+endothelial", 
+#            "10_endothelial", "11_neural_stem", "12_neural", 
+#            "13_myeloid", "14_neural_progenitor", "15_monocyte/DC", 
+#            "16_lymphoid", "17_fibroblast/muscle", "18_myeloid", 
+#            "19_myeloid")
+
+names <- c("0_Stem", "1_Stem", "2_Stem", "3_Neural", 
+           "4_Immune", "5_Immune", "6_Hematopoietic_progenitor", 
+           "7_Neural_progenitor", "8_Immune", "9_Neural", 
+           "10_Epithelial", "11_Neural_progenitor", "12_Neural", 
+           "13_Immune", "14_Neural_progenitor", "15_Epithelial", 
+           "16_Neural", "17_Epithelial", "18_Immune", 
+           "19_Neural")
 
 # Create a named vector to map old cluster IDs to new names
 names_mapping <- setNames(names, as.character(0:19))  # Ensure the keys are characters
@@ -7309,7 +7441,7 @@ plot_tsne_by_cluster <- bind_cols(seurat@meta.data, as.data.frame(seurat@reducti
   )
 
 ggsave(
-  file.path(working_dir, 'final/UMAP.annotation.pdf'),
+  file.path(working_dir, 'final/UMAP.annotation.gfp.pdf'),
   plot_umap_by_cluster + plot_tsne_by_cluster + 
     plot_layout(ncol = 2, widths = c(0.5, 0.5)),
   height = 8,  
@@ -7319,9 +7451,14 @@ ggsave(
 ### UMAP with circles
 seurat@meta.data$cell_type <- as.factor(seurat@meta.data$seurat_clusters)
 levels(seurat@meta.data$cell_type) <- c(levels(seurat@meta.data$cell_type), "Stem", "Progenitors", "Specialized")
-seurat@meta.data$cell_type[seurat@meta.data$cell_type %in% c("0", "1", "2", "5", "11")] <- "Stem"
-seurat@meta.data$cell_type[seurat@meta.data$cell_type %in% c("6", "7")] <- "Progenitors"
-seurat@meta.data$cell_type[seurat@meta.data$cell_type %in% c("3", "4", "8", "9", "10", "12", "13", "14", "15", "16", "17", "18", "19")] <- "Specialized"
+# old
+# seurat@meta.data$cell_type[seurat@meta.data$cell_type %in% c("0", "1", "2", "5", "11")] <- "Stem"
+# seurat@meta.data$cell_type[seurat@meta.data$cell_type %in% c("6", "7")] <- "Progenitors"
+# seurat@meta.data$cell_type[seurat@meta.data$cell_type %in% c("3", "4", "8", "9", "10", "12", "13", "14", "15", "16", "17", "18", "19")] <- "Specialized"
+# new
+seurat@meta.data$cell_type[seurat@meta.data$cell_type %in% c("0", "1", "2")] <- "Stem"
+seurat@meta.data$cell_type[seurat@meta.data$cell_type %in% c("6", "7", "11", "14")] <- "Progenitors"
+seurat@meta.data$cell_type[seurat@meta.data$cell_type %in% c("3", "4", "5", "8", "9", "10", "12", "13", "15", "16", "17", "18", "19")] <- "Specialized"
 seurat@meta.data$cell_type <- droplevels(seurat@meta.data$cell_type)
 desired_order <- c("Stem", "Progenitors", "Specialized")
 seurat@meta.data$cell_type <- factor(seurat$cell_type, levels = desired_order)
@@ -8331,7 +8468,7 @@ table_samples_by_cell_type <- seurat@meta.data %>%
 heatmap_data <- table_samples_by_cell_type[, -which(names(table_samples_by_cell_type) == "total_cell_count")]
 
 # Reshape to long format
-heatmap_data_long <- melt(heatmap_data, id.vars = "seurat_clusters", variable.name = "cell_type", value.name = "count")
+heatmap_data_long <- reshape2::melt(heatmap_data, id.vars = "seurat_clusters", variable.name = "cell_type", value.name = "count")
 
 # Normalize by row max
 heatmap_data_long <- heatmap_data_long %>%
@@ -8351,7 +8488,7 @@ hc <- hclust(dist_matrix)
 ordered_cols <- heatmap_matrix[, hc$order]
 
 # Create a new long format data frame for the reordered heatmap
-heatmap_data_ordered <- melt(ordered_cols)
+heatmap_data_ordered <- reshape2::melt(ordered_cols)
 colnames(heatmap_data_ordered) <- c("seurat_clusters", "cell_type", "likelihood")
 
 # Convert seurat_clusters to numeric for proper ordering
@@ -8393,7 +8530,7 @@ hc <- hclust(dist_matrix)
 ordered_cols <- heatmap_matrix[, hc$order]
 
 # Create a new long format data frame for the reordered heatmap
-heatmap_data_ordered <- melt(ordered_cols)
+heatmap_data_ordered <- reshape2::melt(ordered_cols)
 colnames(heatmap_data_ordered) <- c("seurat_clusters", "cell_type", "likelihood")
 
 # Convert seurat_clusters to numeric for proper ordering
@@ -8436,7 +8573,7 @@ table_samples_by_cell_type <- seurat@meta.data %>%
 heatmap_data <- table_samples_by_cell_type[, -which(names(table_samples_by_cell_type) == "total_cell_count")]
 
 # Reshape to long format
-heatmap_data_long <- melt(heatmap_data, id.vars = "seurat_clusters", variable.name = "cell_type", value.name = "count")
+heatmap_data_long <- reshape2::melt(heatmap_data, id.vars = "seurat_clusters", variable.name = "cell_type", value.name = "count")
 
 # Normalize by row max
 heatmap_data_long <- heatmap_data_long %>%
@@ -8462,7 +8599,7 @@ hc <- hclust(dist_matrix)
 ordered_cols <- heatmap_matrix[, hc$order]
 
 # Create a new long format data frame for the reordered heatmap
-heatmap_data_ordered <- melt(ordered_cols)
+heatmap_data_ordered <- reshape2::melt(ordered_cols)
 colnames(heatmap_data_ordered) <- c("seurat_clusters", "cell_type", "likelihood")
 
 # Convert seurat_clusters to numeric for proper ordering
@@ -8561,7 +8698,7 @@ hc <- hclust(dist_matrix)
 ordered_cols <- heatmap_matrix[, hc$order]
 
 # Create a new long format data frame for the reordered heatmap
-heatmap_data_ordered <- melt(ordered_cols)
+heatmap_data_ordered <- reshape2::melt(ordered_cols)
 colnames(heatmap_data_ordered) <- c("seurat_clusters", "cell_type", "likelihood")
 
 # Convert seurat_clusters to numeric for proper ordering
@@ -8603,7 +8740,7 @@ hc <- hclust(dist_matrix)
 ordered_cols <- heatmap_matrix[, hc$order]
 
 # Create a new long format data frame for the reordered heatmap
-heatmap_data_ordered <- melt(ordered_cols)
+heatmap_data_ordered <- reshape2::melt(ordered_cols)
 colnames(heatmap_data_ordered) <- c("seurat_clusters", "cell_type", "likelihood")
 
 # Convert seurat_clusters to numeric for proper ordering
@@ -8639,7 +8776,7 @@ ggsave(
 heatmap_data <- table_samples_by_cell_type[, -which(names(table_samples_by_cell_type) == "total_cell_count")]
 
 # Reshape to long format
-heatmap_data_long <- melt(heatmap_data, id.vars = "seurat_clusters", variable.name = "cell_type", value.name = "count")
+heatmap_data_long <- reshape2::melt(heatmap_data, id.vars = "seurat_clusters", variable.name = "cell_type", value.name = "count")
 
 # Normalize by row total
 heatmap_data_long <- heatmap_data_long %>%
@@ -8658,7 +8795,7 @@ hc <- hclust(dist_matrix)
 ordered_cols <- heatmap_matrix[, hc$order]
 
 # Create a new long format data frame for the reordered heatmap
-heatmap_data_ordered <- melt(ordered_cols)
+heatmap_data_ordered <- reshape2::melt(ordered_cols)
 colnames(heatmap_data_ordered) <- c("seurat_clusters", "cell_type", "likelihood")
 
 # Convert seurat_clusters to numeric for proper ordering
@@ -9135,3 +9272,500 @@ ggsave(
     plot_layout(heights = c(3, 0.5)), 
   height = 10, width = 6
 )
+
+
+### bulk-seq deconvolution
+seurat <- readRDS(file.path(working_dir, "cytotrace2_result.single.rds"))
+# saveRDS(seurat, file.path(working_dir, "cytotrace2_result.single.rds"))
+sc <- as.matrix(seurat@assays$RNA$counts)
+sc_meta <- seurat@meta.data[c('merged_sample', 'cell_type', 'annotation')]
+colnames(sc_meta) <- c('merged_sample', 'cell_stage', 'cell_type')
+celltype_to_stage <- unique(sc_meta[, c("cell_type", "cell_stage")])
+rownames(celltype_to_stage) <- celltype_to_stage$cell_type
+
+bulk <- as.matrix(read.table(file.path(working_dir, "Tal_CionaRegeneration_Oct2024-Counts_purged.csv"), header = TRUE, row.names = 1, sep = ","))
+# bulk <- as.matrix(read.table(file.path(working_dir, "Tal_CionaRegeneration_Oct2024-Counts.csv"), header = TRUE, row.names = 1, sep = ","))
+# bulk_purged <- bulk[, !grepl("8hr", colnames(bulk))]
+# write.csv(bulk_purged, file = file.path(working_dir, "Tal_CionaRegeneration_Oct2024-Counts_purged.csv"), row.names = TRUE)
+bulk_meta <- data.frame(
+  sample_id = colnames(bulk),
+  row.names = colnames(bulk)
+)
+bulk_meta$rep <- gsub(".*_([0-9]+)$", "\\1", bulk_meta$sample_id)
+bulk_meta$posttran <- ifelse(grepl("0hr", bulk_meta$sample_id), "0hr", "4hr")
+bulk_meta$bisection <- ifelse(grepl("upper", bulk_meta$sample_id), "upper", "bottom")
+
+common_genes <- intersect(rownames(sc), rownames(bulk))
+sc <- sc[common_genes, ]
+bulk <- bulk[common_genes, ]
+
+cat("Common genes:", length(common_genes), "\n")
+cat("SC cells:", ncol(sc), "\n")
+cat("Bulk samples:", ncol(bulk), "\n\n")
+
+run_deconvolution <- function(sc_counts, sc_metadata, bulk_counts, 
+                              cluster_col, sample_col, prefix) {
+  cat("=== Deconvolving by:", cluster_col, "===\n")
+  
+  if (length(unique(sc_metadata[[sample_col]])) > 1) {
+    sce <- SingleCellExperiment(assays = list(counts = sc_counts), colData = sc_metadata)
+    music_res <- music_prop(bulk.mtx = bulk_counts, sc.sce = sce,
+                            clusters = cluster_col, samples = sample_col)
+    write.csv(music_res$Est.prop.weighted, 
+              file.path(working_dir, paste0("music_", prefix, ".csv")))
+    cat("MuSiC: Done\n")
+  } else {
+    music_res <- NULL
+    cat("MuSiC: Skipped\n")
+  }
+  
+  sc_eset <- ExpressionSet(assayData = sc_counts, phenoData = AnnotatedDataFrame(sc_metadata))
+  bulk_eset <- ExpressionSet(assayData = bulk_counts)
+  bisque_res <- ReferenceBasedDecomposition(bulk.eset = bulk_eset, sc.eset = sc_eset,
+                                        cell.types = cluster_col, subject.names = sample_col,
+                                        use.overlap = FALSE)
+  write.csv(t(bisque_res$bulk.props), file.path(working_dir, paste0("bisque_", prefix, ".csv")))
+  cat("Bisque: Done\n\n")
+  
+  return(list(music = music_res, bisque = bisque_res))
+}
+
+res_stage_all <- run_deconvolution(sc, sc_meta, bulk, "cell_stage", "merged_sample", "stage_all")
+res_type_all <- run_deconvolution(sc, sc_meta, bulk, "cell_type", "merged_sample", "type_all")
+
+keep <- sc_meta$merged_sample != "Undetermined"
+sc_filt <- sc[, keep]
+sc_meta_filt <- sc_meta[keep, ]
+sc_meta_filt$merged_sample <- droplevels(sc_meta_filt$merged_sample)
+
+res_stage_filt <- run_deconvolution(sc_filt, sc_meta_filt, bulk, "cell_stage", "merged_sample", "stage_filtered")
+res_type_filt <- run_deconvolution(sc_filt, sc_meta_filt, bulk, "cell_type", "merged_sample", "type_filtered")
+
+
+compare_props <- function(result, method_name, title, sc_counts, sc_metadata, cluster_col) {
+  
+  if (method_name == "MuSiC") {
+    if (is.null(result)) return(NULL)
+    
+    # Calculate reference proportions from scRNA data
+    cell_labels <- sc_metadata[[cluster_col]]
+    ref_counts <- table(cell_labels)
+    ref_props <- ref_counts / sum(ref_counts)
+    
+    # Get deconvolved proportions (average across bulk samples)
+    deconv_props <- colMeans(result$Est.prop.weighted)
+    
+    # Match names
+    common_types <- intersect(names(ref_props), names(deconv_props))
+    
+    df_compare <- data.frame(
+      CellType = common_types,
+      Reference = as.numeric(ref_props[common_types]),
+      Deconvolved = as.numeric(deconv_props[common_types])
+    )
+    
+  } else {
+    # Bisque - use provided sc.props
+    sc_mean <- rowMeans(result$sc.props)
+    bulk_mean <- rowMeans(result$bulk.props)
+    
+    df_compare <- data.frame(
+      CellType = names(sc_mean),
+      Reference = sc_mean,
+      Deconvolved = bulk_mean
+    )
+  }
+  
+  # Calculate differences
+  df_compare$AbsDiff <- abs(df_compare$Reference - df_compare$Deconvolved)
+  df_compare$RelDiff <- ifelse(df_compare$Reference > 0,
+                               df_compare$AbsDiff / df_compare$Reference, NA)
+  df_compare$PercentDiff <- df_compare$RelDiff * 100
+  df_compare <- df_compare[order(-df_compare$RelDiff, na.last = TRUE), ]
+  
+  # Plot
+  df_compare$CellType_num <- as.numeric(gsub("^(\\d+)_.*", "\\1", df_compare$CellType))
+  df_plot <- df_compare[order(df_compare$CellType_num), ]
+  df_plot$CellType <- factor(df_plot$CellType, levels = df_plot$CellType)
+  
+  df_long <- reshape2::melt(df_plot[, c("CellType", "Reference", "Deconvolved")],
+                            id.vars = "CellType", variable.name = "Source", value.name = "Proportion")
+  
+  cor_val <- cor(df_compare$Reference, df_compare$Deconvolved)
+  
+  p <- ggplot(df_long, aes(x = CellType, y = Proportion, fill = Source)) +
+    geom_bar(stat = "identity", position = "dodge", width = 0.7) +
+    theme_bw() +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 9), legend.position = "top") +
+    labs(title = paste0(method_name, ": ", title), 
+         subtitle = paste0("Pearson r = ", round(cor_val, 3)),
+         x = "", y = "Mean Proportion") +
+    scale_fill_manual(values = c("Reference" = "#73B79B", "Deconvolved" = "#9C4A98"))
+  
+  cat("\n===", title, "===\n")
+  cat("Correlation:", round(cor_val, 3), "\n")
+  cat("Mean abs diff:", round(mean(df_compare$AbsDiff), 4), "\n")
+  cat("Mean rel diff:", round(mean(df_compare$RelDiff, na.rm = TRUE) * 100, 2), "%\n\n")
+  
+  return(list(plot = p, stats = df_compare))
+}
+
+# Run comparisons for BOTH methods
+diagnostic_configs <- list(
+  list("type_all", res_type_all, "cell_type", "Cell Type (All)", sc, sc_meta),
+  list("type_filtered", res_type_filt, "cell_type", "Cell Type (Filtered)", sc_filt, sc_meta_filt),
+  list("stage_all", res_stage_all, "cell_stage", "Cell Stage (All)", sc, sc_meta),
+  list("stage_filtered", res_stage_filt, "cell_stage", "Cell Stage (Filtered)", sc_filt, sc_meta_filt)
+)
+
+for (cfg in diagnostic_configs) {
+  for (method in c("music", "bisque")) {
+    result <- cfg[[2]][[method]]
+    comp <- compare_props(result, 
+                          ifelse(method == "music", "MuSiC", "Bisque"),
+                          cfg[[4]], 
+                          cfg[[5]], 
+                          cfg[[6]], 
+                          cfg[[3]])
+    
+    if (!is.null(comp)) {
+      ggsave(file.path(working_dir, paste0("diagnostic_", method, "_", cfg[[1]], ".pdf")), 
+             comp$plot, width = 12, height = 6)
+      write.csv(comp$stats, 
+                file.path(working_dir, paste0("diagnostic_", method, "_", cfg[[1]], ".csv")), 
+                row.names = FALSE)
+    }
+  }
+}
+
+# ============================================================
+# Filter and reconstruct
+# ============================================================
+filter_and_reconstruct <- function(type_result, comp_stats, type_to_stage_map, result_name) {
+  if (is.null(type_result) || is.null(comp_stats)) return(NULL)
+  
+  to_remove <- comp_stats$CellType[(comp_stats$AbsDiff > 0.05 | comp_stats$RelDiff > 0.5) & !is.na(comp_stats$RelDiff)]
+  
+  cat("\n", result_name, ": Removing", length(to_remove), "cell types\n")
+  
+  if (!is.null(type_result$music)) {
+    keep <- !colnames(type_result$music$Est.prop.weighted) %in% to_remove
+    type_result$music$Est.prop.weighted <- type_result$music$Est.prop.weighted[, keep, drop = FALSE]
+  }
+  if (!is.null(type_result$bisque)) {
+    keep <- !rownames(type_result$bisque$bulk.props) %in% to_remove
+    type_result$bisque$bulk.props <- type_result$bisque$bulk.props[keep, , drop = FALSE]
+    type_result$bisque$sc.props <- type_result$bisque$sc.props[keep, , drop = FALSE]
+  }
+  
+  return(type_result)
+}
+
+reconstruct_stage <- function(type_result, type_to_stage_map, result_name) {
+  if (is.null(type_result)) return(NULL)
+  
+  cat("\n", result_name, ": Reconstructing stages\n")
+  stage_result <- list()
+  
+  if (!is.null(type_result$music)) {
+    type_names <- colnames(type_result$music$Est.prop.weighted)
+    stage_map <- type_to_stage_map[type_names, "cell_stage"]
+    stage_props <- t(apply(type_result$music$Est.prop.weighted, 1, function(row) {
+      tapply(row, stage_map, sum, na.rm = TRUE)
+    }))
+    stage_result$music <- list(Est.prop.weighted = stage_props)
+  }
+  
+  if (!is.null(type_result$bisque)) {
+    type_names <- rownames(type_result$bisque$bulk.props)
+    stage_map <- type_to_stage_map[type_names, "cell_stage"]
+    stage_props <- t(apply(type_result$bisque$bulk.props, 2, function(col) {
+      tapply(col, stage_map, sum, na.rm = TRUE)
+    }))
+    stage_result$bisque <- list(bulk.props = t(stage_props))
+  }
+  
+  return(stage_result)
+}
+
+# Store and filter
+deconv_results <- list(
+  stage_all = res_stage_all,
+  type_all = res_type_all,
+  stage_filtered = res_stage_filt,
+  type_filtered = res_type_filt,
+  type_all_unpurged = res_type_all,
+  type_filtered_unpurged = res_type_filt
+)
+
+deconv_results$type_all <- filter_and_reconstruct(deconv_results$type_all, comp_type_all$stats, celltype_to_stage, "Type (All)")
+deconv_results$type_filtered <- filter_and_reconstruct(deconv_results$type_filtered, comp_type_filt$stats, celltype_to_stage, "Type (Filtered)")
+
+deconv_results$stage_all_reconstructed <- reconstruct_stage(deconv_results$type_all, celltype_to_stage, "Stage (All)")
+deconv_results$stage_filtered_reconstructed <- reconstruct_stage(deconv_results$type_filtered, celltype_to_stage, "Stage (Filtered)")
+
+# Overwrite
+res_type_all <- deconv_results$type_all
+res_type_filt <- deconv_results$type_filtered
+# res_stage_all <- deconv_results$stage_all_reconstructed
+# res_stage_filt <- deconv_results$stage_filtered_reconstructed
+
+saveRDS(deconv_results, file.path(working_dir, "deconvolution_results.rds"))
+
+#### stack bar plots
+plot_comparison_single <- function(props_matrix, method_name, title, is_music = TRUE) {
+  if (is.null(props_matrix)) return(NULL)
+  
+  df <- reshape2::melt(if (is_music) as.matrix(props_matrix) else props_matrix)
+  colnames(df) <- if (is_music) c("Sample", "CellType", "Proportion") else c("CellType", "Sample", "Proportion")
+  df$Sample <- gsub("hr\\b", "h", df$Sample)
+  df$Sample_merged <- gsub("_[0-9]+$", "", df$Sample)
+  
+  df_agg <- aggregate(Proportion ~ Sample_merged + CellType, data = df, FUN = mean)
+  df_agg$CellType_num <- as.numeric(gsub("^(\\d+)_.*", "\\1", df_agg$CellType))
+  df_agg <- df_agg[order(df_agg$CellType_num), ]
+  df_agg$CellType <- factor(df_agg$CellType, levels = unique(df_agg$CellType))
+  
+  df_agg$Location <- ifelse(grepl("upper", df_agg$Sample_merged), "upper", "bottom")
+  df_agg$Time_numeric <- as.numeric(gsub(".*_(\\d+)h.*", "\\1", df_agg$Sample_merged))
+  
+  sample_order <- unique(df_agg[order(df_agg$Location == "bottom", df_agg$Time_numeric), 
+                                c("Sample_merged", "Location", "Time_numeric")])
+  df_agg$Sample_merged <- factor(df_agg$Sample_merged, levels = sample_order$Sample_merged)
+  
+  ggplot(df_agg, aes(x = Sample_merged, y = Proportion, fill = CellType)) +
+    geom_bar(stat = "identity", position = "stack") +
+    theme_bw() +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 8)) +
+    labs(title = paste0(method_name, ": ", title), y = "Proportion", x = "") +
+    scale_fill_manual(values = custom_colors$discrete)
+}
+
+# Generate all comparison plots (stage + type, all + filtered, music + bisque)
+plots <- list(
+  list(res_stage_all, "Stage (All)", "stage_all"),
+  list(res_type_all, "Cell Type (All)", "type_all"),
+  list(res_stage_filt, "Stage (Filtered)", "stage_filtered"),
+  list(res_type_filt, "Cell Type (Filtered)", "type_filtered")
+)
+
+for (p in plots) {
+  for (method in c("music", "bisque")) {
+    props <- p[[1]][[method]]
+    if (!is.null(props)) {
+      plot_obj <- plot_comparison_single(
+        if (method == "music") props$Est.prop.weighted else props$bulk.props,
+        ifelse(method == "music", "MuSiC", "Bisque"),
+        p[[2]],
+        is_music = (method == "music")
+      )
+      if (!is.null(plot_obj)) {
+        ggsave(file.path(working_dir, paste0("comparison_", method, "_", p[[3]], ".pdf")), 
+               plot_obj, width = 12, height = 6)
+      }
+    }
+  }
+}
+
+# ============================================================
+# Heatmaps (updated labels)
+# ============================================================
+merge_replicates <- function(props_matrix) {
+  colnames(props_matrix) <- gsub("hr\\b", "h", colnames(props_matrix))
+  rownames(props_matrix) <- gsub("hr\\b", "h", rownames(props_matrix))
+  
+  sample_merged <- gsub("_[0-9]+$", "", colnames(props_matrix))
+  merged <- t(apply(props_matrix, 1, function(row) tapply(row, sample_merged, mean)))
+  return(merged)
+}
+
+order_samples <- function(sample_names) {
+  df <- data.frame(
+    sample = sample_names,
+    location = ifelse(grepl("upper", sample_names), "upper", "bottom"),
+    time = as.numeric(gsub(".*_(\\d+)h.*", "\\1", sample_names))
+  )
+  df[order(df$location == "bottom", df$time), "sample"]
+}
+
+custom_heatmap_colors <- colorRampPalette(c("#73B79B", "white", "#9C4A98"))(100)
+
+# Generate all heatmaps
+heatmap_configs <- list(
+  list(res_stage_all, "Stage (All)", "stage_all", 6),
+  list(res_type_all, "Cell Type (All)", "type_all", 8),
+  list(res_stage_filt, "Stage (Filtered)", "stage_filtered", 6),
+  list(res_type_filt, "Cell Type (Filtered)", "type_filtered", 8)
+)
+
+for (cfg in heatmap_configs) {
+  for (method in c("music", "bisque")) {
+    props <- cfg[[1]][[method]]
+    if (!is.null(props)) {
+      merged <- merge_replicates(if (method == "music") t(props$Est.prop.weighted) else props$bulk.props)
+      
+      # Clustered
+      pheatmap(merged,
+               main = paste0(ifelse(method == "music", "MuSiC", "Bisque"), ": ", cfg[[2]], " - Clustered"),
+               color = custom_heatmap_colors,
+               cluster_rows = TRUE, cluster_cols = TRUE,
+               filename = file.path(working_dir, paste0("heatmap_", method, "_", cfg[[3]], "_clustered.pdf")),
+               width = 12, height = cfg[[4]])
+      
+      # Ordered
+      sample_order <- order_samples(colnames(merged))
+      ordered <- merged[, sample_order]
+      pheatmap(ordered,
+               main = paste0(ifelse(method == "music", "MuSiC", "Bisque"), ": ", cfg[[2]], " - Ordered"),
+               color = custom_heatmap_colors,
+               cluster_rows = FALSE, cluster_cols = FALSE,
+               filename = file.path(working_dir, paste0("heatmap_", method, "_", cfg[[3]], "_ordered.pdf")),
+               width = 12, height = cfg[[4]])
+    }
+  }
+}
+
+# ============================================================
+# Line plots (updated labels)
+# ============================================================
+plot_lineplot_stage <- function(props_matrix, method_name, title, is_music = TRUE) {
+  if (is.null(props_matrix)) return(NULL)
+  
+  df <- reshape2::melt(if (is_music) as.matrix(props_matrix) else props_matrix)
+  colnames(df) <- if (is_music) c("Sample", "CellStage", "Proportion") else c("CellStage", "Sample", "Proportion")
+  df$Sample <- gsub("hr\\b", "h", df$Sample)
+  df$Sample_merged <- gsub("_[0-9]+$", "", df$Sample)
+  
+  df_agg <- aggregate(Proportion ~ Sample_merged + CellStage, data = df, FUN = mean)
+  df_agg$Location <- ifelse(grepl("upper", df_agg$Sample_merged), "Upper", "Bottom")
+  df_agg$Location <- factor(df_agg$Location, levels = c("Upper", "Bottom"))
+  df_agg$Time_numeric <- as.numeric(gsub(".*_(\\d+)h.*", "\\1", df_agg$Sample_merged))
+  
+  ggplot(df_agg, aes(x = Time_numeric, y = Proportion, color = CellStage, group = CellStage)) +
+    geom_line(size = 1) +
+    geom_point(size = 2) +
+    facet_wrap(~Location, ncol = 2) +
+    theme_bw() +
+    theme(legend.position = "right",
+          strip.background = element_blank(),
+          strip.text = element_text(face = "bold", size = 11),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank()) +
+    labs(title = paste0(method_name, ": ", title), 
+         x = "Time (hours)", y = "Proportion", color = "Cell Stage") +
+    scale_color_manual(values = custom_colors$discrete) +
+    scale_x_continuous(breaks = unique(df_agg$Time_numeric))
+}
+
+plot_lineplot_type <- function(props_matrix, method_name, title, is_music = TRUE) {
+  if (is.null(props_matrix)) return(NULL)
+  
+  df <- reshape2::melt(if (is_music) as.matrix(props_matrix) else props_matrix)
+  colnames(df) <- if (is_music) c("Sample", "CellType", "Proportion") else c("CellType", "Sample", "Proportion")
+  df$Sample <- gsub("hr\\b", "h", df$Sample)
+  df$Sample_merged <- gsub("_[0-9]+$", "", df$Sample)
+  
+  df_agg <- aggregate(Proportion ~ Sample_merged + CellType, data = df, FUN = mean)
+  
+  # Map to cell stage BEFORE any other operations
+  # Create a proper lookup from the original sc_meta
+  stage_lookup <- setNames(celltype_to_stage$cell_stage, celltype_to_stage$cell_type)
+  
+  # Apply the mapping
+  df_agg$CellStage <- stage_lookup[as.character(df_agg$CellType)]
+  
+  # Check for NAs (unmapped cell types)
+  if (any(is.na(df_agg$CellStage))) {
+    cat("Warning: Unmapped cell types:\n")
+    print(unique(df_agg$CellType[is.na(df_agg$CellStage)]))
+  }
+  
+  # Sort cell types numerically
+  df_agg$CellType_num <- as.numeric(gsub("^(\\d+)_.*", "\\1", df_agg$CellType))
+  df_agg <- df_agg[order(df_agg$CellType_num), ]
+  df_agg$CellType <- factor(df_agg$CellType, levels = unique(df_agg$CellType))
+  
+  # Extract location and timepoint
+  df_agg$Location <- ifelse(grepl("upper", df_agg$Sample_merged), "Upper", "Bottom")
+  df_agg$Location <- factor(df_agg$Location, levels = c("Upper", "Bottom"))
+  df_agg$Time_numeric <- as.numeric(gsub(".*_(\\d+)h.*", "\\1", df_agg$Sample_merged))
+  
+  # Order cell stages
+  df_agg$CellStage <- factor(df_agg$CellStage, levels = c("Stem", "Progenitors", "Specialized"))
+  
+  ggplot(df_agg, aes(x = Time_numeric, y = Proportion, color = CellType, group = CellType)) +
+    geom_line(size = 1) +
+    geom_point(size = 2) +
+    facet_grid(CellStage ~ Location) +
+    theme_bw() +
+    theme(legend.position = "right",
+          strip.background = element_blank(),
+          strip.text = element_text(face = "bold", size = 11),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank()) +
+    labs(title = paste0(method_name, ": ", title), 
+         x = "Time (hours)", y = "Proportion", color = "Cell Type") +
+    scale_color_manual(values = custom_colors$discrete) +
+    scale_x_continuous(breaks = unique(df_agg$Time_numeric))
+}
+
+# Generate all line plots
+lineplot_configs <- list(
+  list(res_stage_all, plot_lineplot_stage, "Stage (All)", "stage_all", c(10, 5)),
+  list(res_type_all, plot_lineplot_type, "Cell Type (All)", "type_all", c(12, 10)),
+  list(res_stage_filt, plot_lineplot_stage, "Stage (Filtered)", "stage_filtered", c(10, 5)),
+  list(res_type_filt, plot_lineplot_type, "Cell Type (Filtered)", "type_filtered", c(12, 10))
+)
+
+for (cfg in lineplot_configs) {
+  for (method in c("music", "bisque")) {
+    props <- cfg[[1]][[method]]
+    if (!is.null(props)) {
+      plot_obj <- cfg[[2]](
+        if (method == "music") props$Est.prop.weighted else props$bulk.props,
+        ifelse(method == "music", "MuSiC", "Bisque"),
+        cfg[[3]],
+        is_music = (method == "music")
+      )
+      if (!is.null(plot_obj)) {
+        ggsave(file.path(working_dir, paste0("lineplot_", method, "_", cfg[[4]], ".pdf")), 
+               plot_obj, width = cfg[[5]][1], height = cfg[[5]][2])
+      }
+    }
+  }
+}
+
+# ============================================================
+# Method correlations
+# ============================================================
+for (res_pair in list(
+  list(res_stage_all, "stage_all", "Stage (All)"),
+  list(res_type_all, "type_all", "Cell Type (All)"),
+  list(res_stage_filt, "stage_filtered", "Stage (Filtered)"),
+  list(res_type_filt, "type_filtered", "Cell Type (Filtered)")
+)) {
+  if (!is.null(res_pair[[1]]$music) && !is.null(res_pair[[1]]$bisque)) {
+    common_ct <- intersect(colnames(res_pair[[1]]$music$Est.prop.weighted),
+                          rownames(res_pair[[1]]$bisque$bulk.props))
+    
+    if (length(common_ct) > 0) {
+      music_vals <- as.vector(res_pair[[1]]$music$Est.prop.weighted[, common_ct])
+      bisque_vals <- as.vector(t(res_pair[[1]]$bisque$bulk.props[common_ct, ]))
+      cor_val <- cor(music_vals, bisque_vals)
+      
+      df_cor <- data.frame(MuSiC = music_vals, Bisque = bisque_vals)
+      
+      p_cor <- ggplot(df_cor, aes(x = MuSiC, y = Bisque)) +
+        geom_point(alpha = 0.5, size = 2) +
+        geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "red") +
+        theme_bw() +
+        labs(title = paste0("MuSiC vs Bisque: ", res_pair[[3]]),
+             subtitle = paste("Pearson r =", round(cor_val, 3)))
+      
+      ggsave(file.path(working_dir, paste0("correlation_", res_pair[[2]], ".pdf")), 
+             p_cor, width = 6, height = 6)
+    }
+  }
+}
+
+
