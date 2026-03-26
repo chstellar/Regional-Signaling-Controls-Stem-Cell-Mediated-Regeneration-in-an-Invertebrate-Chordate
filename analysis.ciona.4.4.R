@@ -9504,13 +9504,18 @@ deconv_results$type_filtered <- filter_and_reconstruct(deconv_results$type_filte
 deconv_results$stage_all_reconstructed <- reconstruct_stage(deconv_results$type_all, celltype_to_stage, "Stage (All)")
 deconv_results$stage_filtered_reconstructed <- reconstruct_stage(deconv_results$type_filtered, celltype_to_stage, "Stage (Filtered)")
 
-# Overwrite
 res_type_all <- deconv_results$type_all
 res_type_filt <- deconv_results$type_filtered
 # res_stage_all <- deconv_results$stage_all_reconstructed
 # res_stage_filt <- deconv_results$stage_filtered_reconstructed
 
-saveRDS(deconv_results, file.path(working_dir, "deconvolution_results.rds"))
+deconv_results <- readRDS(file.path(working_dir, "deconvolution_results.rds"))
+# saveRDS(deconv_results, file.path(working_dir, "deconvolution_results.rds"))
+
+res_type_all <- deconv_results$type_all
+res_type_filt <- deconv_results$type_filtered
+res_stage_all <- deconv_results$stage_all
+res_stage_filt <- deconv_results$stage_filtered
 
 #### stack bar plots
 plot_comparison_single <- function(props_matrix, method_name, title, is_music = TRUE) {
@@ -9598,11 +9603,53 @@ heatmap_configs <- list(
   list(res_type_filt, "Cell Type (Filtered)", "type_filtered", 8)
 )
 
+# Add this helper function
+order_rows_by_stage <- function(row_names, celltype_to_stage_map) {
+  # Extract numeric prefix
+  row_nums <- as.numeric(gsub("^(\\d+)_.*", "\\1", row_names))
+  
+  # Get stage for each row
+  stage_lookup <- setNames(celltype_to_stage_map$cell_stage, celltype_to_stage_map$cell_type)
+  row_stages <- stage_lookup[row_names]
+  
+  # Set stage order
+  stage_order <- factor(row_stages, levels = c("Stem", "Progenitors", "Specialized"))
+  
+  # Order by stage first, then by number within stage
+  ordered_idx <- order(stage_order, row_nums)
+  row_names[ordered_idx]
+}
+
+# Fixed helper function
+add_stage_counts <- function(stage_names, celltype_to_stage_map) {
+  # Count cell types per stage from the mapping
+  stage_counts <- table(celltype_to_stage_map$cell_stage)
+  
+  # Match stage names (handle any existing modifications)
+  clean_stage_names <- gsub(" \\(n=.*\\)", "", stage_names)  # Remove any existing (n=X)
+  
+  # Add counts
+  counts <- stage_counts[clean_stage_names]
+  paste0(clean_stage_names, " (n=", counts, ")")
+}
+
+# Updated heatmap generation
 for (cfg in heatmap_configs) {
   for (method in c("music", "bisque")) {
     props <- cfg[[1]][[method]]
     if (!is.null(props)) {
       merged <- merge_replicates(if (method == "music") t(props$Est.prop.weighted) else props$bulk.props)
+      
+      # Sort rows by stage, then numerically (only for type heatmaps)
+      if (grepl("type", cfg[[3]])) {
+        row_order <- order_rows_by_stage(rownames(merged), celltype_to_stage)
+        merged <- merged[row_order, ]
+      }
+      
+      # Add counts to stage names (only for stage heatmaps)
+      if (grepl("stage", cfg[[3]])) {
+        rownames(merged) <- add_stage_counts(rownames(merged), celltype_to_stage)
+      }
       
       # Clustered
       pheatmap(merged,
@@ -9615,6 +9662,12 @@ for (cfg in heatmap_configs) {
       # Ordered
       sample_order <- order_samples(colnames(merged))
       ordered <- merged[, sample_order]
+      
+      # Re-add counts for ordered version (for stage heatmaps)
+      if (grepl("stage", cfg[[3]])) {
+        rownames(ordered) <- add_stage_counts(rownames(ordered), celltype_to_stage)
+      }
+      
       pheatmap(ordered,
                main = paste0(ifelse(method == "music", "MuSiC", "Bisque"), ": ", cfg[[2]], " - Ordered"),
                color = custom_heatmap_colors,
@@ -9624,6 +9677,72 @@ for (cfg in heatmap_configs) {
     }
   }
 }
+
+# paired heatmaps share the same scale which is bad
+# for (i in seq(1, length(heatmap_configs), by = 2)) {
+#   # Process pairs: stage_all + type_all, stage_filtered + type_filtered
+#   stage_cfg <- heatmap_configs[[i]]
+#   type_cfg <- heatmap_configs[[i + 1]]
+#   
+#   for (method in c("music", "bisque")) {
+#     stage_props <- stage_cfg[[1]][[method]]
+#     type_props <- type_cfg[[1]][[method]]
+#     
+#     if (!is.null(stage_props) && !is.null(type_props)) {
+#       # Merge replicates for both
+#       stage_merged <- merge_replicates(if (method == "music") t(stage_props$Est.prop.weighted) else stage_props$bulk.props)
+#       type_merged <- merge_replicates(if (method == "music") t(type_props$Est.prop.weighted) else type_props$bulk.props)
+#       
+#       # Sort type rows by stage, then numerically
+#       row_order <- order_rows_by_stage(rownames(type_merged), celltype_to_stage)
+#       type_merged <- type_merged[row_order, ]
+#       
+#       # Calculate shared min/max for color scale
+#       shared_min <- min(c(stage_merged, type_merged))
+#       shared_max <- max(c(stage_merged, type_merged))
+#       shared_breaks <- seq(shared_min, shared_max, length.out = 101)
+#       
+#       # Stage heatmaps - Clustered
+#       pheatmap(stage_merged,
+#                main = paste0(ifelse(method == "music", "MuSiC", "Bisque"), ": ", stage_cfg[[2]], " - Clustered"),
+#                color = custom_heatmap_colors,
+#                breaks = shared_breaks,
+#                cluster_rows = TRUE, cluster_cols = TRUE,
+#                filename = file.path(working_dir, paste0("heatmap_", method, "_", stage_cfg[[3]], "_clustered.pdf")),
+#                width = 12, height = stage_cfg[[4]])
+#       
+#       # Stage heatmaps - Ordered
+#       sample_order <- order_samples(colnames(stage_merged))
+#       stage_ordered <- stage_merged[, sample_order]
+#       pheatmap(stage_ordered,
+#                main = paste0(ifelse(method == "music", "MuSiC", "Bisque"), ": ", stage_cfg[[2]], " - Ordered"),
+#                color = custom_heatmap_colors,
+#                breaks = shared_breaks,
+#                cluster_rows = FALSE, cluster_cols = FALSE,
+#                filename = file.path(working_dir, paste0("heatmap_", method, "_", stage_cfg[[3]], "_ordered.pdf")),
+#                width = 12, height = stage_cfg[[4]])
+#       
+#       # Type heatmaps - Clustered
+#       pheatmap(type_merged,
+#                main = paste0(ifelse(method == "music", "MuSiC", "Bisque"), ": ", type_cfg[[2]], " - Clustered"),
+#                color = custom_heatmap_colors,
+#                breaks = shared_breaks,
+#                cluster_rows = TRUE, cluster_cols = TRUE,
+#                filename = file.path(working_dir, paste0("heatmap_", method, "_", type_cfg[[3]], "_clustered.pdf")),
+#                width = 12, height = type_cfg[[4]])
+#       
+#       # Type heatmaps - Ordered
+#       type_ordered <- type_merged[, sample_order]
+#       pheatmap(type_ordered,
+#                main = paste0(ifelse(method == "music", "MuSiC", "Bisque"), ": ", type_cfg[[2]], " - Ordered"),
+#                color = custom_heatmap_colors,
+#                breaks = shared_breaks,
+#                cluster_rows = FALSE, cluster_cols = FALSE,
+#                filename = file.path(working_dir, paste0("heatmap_", method, "_", type_cfg[[3]], "_ordered.pdf")),
+#                width = 12, height = type_cfg[[4]])
+#     }
+#   }
+# }
 
 # ============================================================
 # Line plots (updated labels)
